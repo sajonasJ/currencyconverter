@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from "react";
 import Toast from "react-native-toast-message";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DropDownPicker from "react-native-dropdown-picker";
+
+
 import {
   StyleSheet,
   Text,
   View,
   TextInput,
   TouchableOpacity,
-  Picker,
   ActivityIndicator,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 
 const CurrencyConverter = () => {
@@ -20,6 +24,9 @@ const CurrencyConverter = () => {
   const [convertedAmount, setConvertedAmount] = useState(null);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+
+  const [fromDropdownOpen, setFromDropdownOpen] = useState(false);
+  const [toDropdownOpen, setToDropdownOpen] = useState(false);
   const [isCurrencyLocked, setIsCurrencyLocked] = useState(false);
   const allowedCurrencies = [
     { name: "United States", code: "USD" },
@@ -118,7 +125,7 @@ const CurrencyConverter = () => {
     setConvertedAmount(null);
     setAmount("");
     setIsCurrencyLocked(false);
-  
+
     try {
       await AsyncStorage.removeItem('@conversion_history');
       Toast.show({
@@ -164,104 +171,99 @@ const CurrencyConverter = () => {
     .toFixed(2);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Travel Expense Calculator</Text>
-      <View style={styles.converterBox}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <Text style={styles.label}>Amount:</Text>
-          <TextInput
-            style={styles.inputInline}
-            placeholder="Enter amount"
-            keyboardType="numeric"
-            value={amount}
-            onChangeText={setAmount}
-          />
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Travel Expense Calculator</Text>
+        <View style={styles.converterBox}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 20,
+            }}
+          >
+            <Text style={styles.label}>Amount:</Text>
+            <TextInput
+              style={styles.inputInline}
+              placeholder="Enter amount"
+              placeholderTextColor="black"
+              keyboardType="numeric"
+              value={amount}
+              onChangeText={setAmount}
+            />
+          </View>
+
+          <View>
+          <DropDownPicker
+        open={fromDropdownOpen}
+        value={fromCurrency}
+        items={allowedCurrencies}
+        setOpen={setFromDropdownOpen}
+        setValue={setFromCurrency}
+        placeholder="Select From Currency"
+        style={styles.dropdown}
+        dropDownContainerStyle={styles.dropdownContainer}
+      />
+
+      <DropDownPicker
+        open={toDropdownOpen}
+        value={toCurrency}
+        items={allowedCurrencies}
+        setOpen={setToDropdownOpen}
+        setValue={setToCurrency}
+        placeholder="Select To Currency"
+        style={styles.dropdown}
+        dropDownContainerStyle={styles.dropdownContainer}
+      />
+
+</View>
+
+
+
+          <TouchableOpacity style={styles.button} onPress={convertCurrency}>
+            <Text style={styles.buttonText}>Convert</Text>
+          </TouchableOpacity>
+        </View>
+        <View>
+          {loading ? (
+            <ActivityIndicator size="large" color="#0000ff" />
+          ) : (
+            convertedAmount && (
+              <Text style={styles.result}>
+                {amount} {fromCurrency} = {convertedAmount} {toCurrency}
+              </Text>
+            )
+          )}
         </View>
 
-        <Picker
-          selectedValue={fromCurrency}
-          style={styles.picker}
-          itemStyle={styles.pickerItem}
-          onValueChange={(itemValue) =>
-            !isCurrencyLocked && setFromCurrency(itemValue)
-          }
-          enabled={!isCurrencyLocked}
-        >
-          {allowedCurrencies.map((item) => (
-            <Picker.Item
-              label={`${item.code} - ${item.name}`}
-              value={item.code}
-              key={item.code}
-            />
-          ))}
-        </Picker>
+        <View style={styles.historyContainer}>
+          <Text style={styles.historyTitle}>Conversion History</Text>
+          {history.length === 0 ? (
+            <Text>No history available.</Text>
+          ) : (
+            history.map((entry, index) => (
+              <View key={index} style={styles.historyItem}>
+                <Text>{`${entry.amount} ${entry.fromCurrency} = ${entry.result} ${entry.toCurrency}`}</Text>
+                <Text style={styles.date}>{entry.date}</Text>
+              </View>
+            ))
+          )}
+        </View>
 
-        <Picker
-          selectedValue={toCurrency}
-          style={styles.picker}
-          itemStyle={styles.pickerItem}
-          onValueChange={(itemValue) =>
-            !isCurrencyLocked && setToCurrency(itemValue)
-          }
-          enabled={!isCurrencyLocked}
-        >
-          {allowedCurrencies.map((item) => (
-            <Picker.Item
-              label={`${item.code} - ${item.name}`}
-              value={item.code}
-              key={item.code}
-            />
-          ))}
-        </Picker>
+        {history.length > 0 && (
+          <View style={styles.totalContainer}>
+            <Text style={styles.totalText}>
+              Total: {totalConvertedAmount} {toCurrency} from {fromCurrency}
+            </Text>
+          </View>
+        )}
 
-        <TouchableOpacity style={styles.button} onPress={convertCurrency}>
-          <Text style={styles.buttonText}>Convert</Text>
+        <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
+          <Text style={styles.buttonText}>Clear History</Text>
         </TouchableOpacity>
       </View>
-      <View>
-        {loading ? (
-          <ActivityIndicator size="large" color="#0000ff" />
-        ) : (
-          convertedAmount && (
-            <Text style={styles.result}>
-              {amount} {fromCurrency} = {convertedAmount} {toCurrency}
-            </Text>
-          )
-        )}
-      </View>
+    </TouchableWithoutFeedback>
 
-      <View style={styles.historyContainer}>
-        <Text style={styles.historyTitle}>Conversion History</Text>
-        {history.length === 0 ? (
-          <Text>No history available.</Text>
-        ) : (
-          history.map((entry, index) => (
-            <View key={index} style={styles.historyItem}>
-              <Text>{`${entry.amount} ${entry.fromCurrency} = ${entry.result} ${entry.toCurrency}`}</Text>
-              <Text style={styles.date}>{entry.date}</Text>
-            </View>
-          ))
-        )}
-      </View>
-
-      {history.length > 0 && (
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalText}>
-            Total: {totalConvertedAmount} {toCurrency} from {fromCurrency}
-          </Text>
-        </View>
-      )}
-
-      <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
-        <Text style={styles.buttonText}>Clear History</Text>
-      </TouchableOpacity>
-    </View>
   );
 };
 
@@ -271,19 +273,27 @@ const CurrencyConverter = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "flex-start",
+    justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    width: "100%",
     backgroundColor: "#f5f5f5",
   },
   picker: {
     height: 50,
     width: "100%",
+    backgroundColor: "#fff", // White background
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
     marginBottom: 20,
+    paddingHorizontal: 10,
+    color: "#333", // Text color
   },
   pickerItem: {
-    padding: 5,
+    fontSize: 16,
     textAlign: "center",
+    color: "#555",
   },
   title: {
     fontSize: 24,
@@ -301,6 +311,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginRight: 10,
   },
+
   inputInline: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -366,4 +377,28 @@ const styles = StyleSheet.create({
   },
 });
 
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    height: 50,
+    fontSize: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    marginBottom: 20,
+    backgroundColor: "#fff",
+    color: "#333",
+  },
+  inputAndroid: {
+    height: 50,
+    fontSize: 16,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    marginBottom: 20,
+    backgroundColor: "#fff",
+    color: "#333",
+  },
+});
 export default CurrencyConverter;
