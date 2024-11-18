@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Toast from "react-native-toast-message";
 import {
   StyleSheet,
   Text,
@@ -71,6 +72,14 @@ const CurrencyConverter = () => {
     } catch (error) {
       console.error("Error converting currency:", error);
       alert("There was an error converting the currency.");
+
+        Toast.show({
+            type:"error",
+            position:"top",
+            text1:"Conversion Failed",
+            text2:"There was an error converting the currency."
+        })
+
     } finally {
       setLoading(false);
     }
@@ -83,6 +92,13 @@ const CurrencyConverter = () => {
     setIsCurrencyLocked(false);
     setFromCurrency("AUD");
     setToCurrency("JPY");
+
+    Toast.show({
+        type:"success",
+        position:"top",
+        text1:"History Cleared",
+        text2:"All conversion history has been removed.",
+    })
   };
 
   // Calculate total of all conversions and include the base currency
@@ -137,6 +153,7 @@ const CurrencyConverter = () => {
               label={`${item.code} - ${item.name}`}
               value={item.code}
               key={item.code}
+              style={{ textAlign: 'center' }}
             />
           ))}
         </Picker>
@@ -174,7 +191,7 @@ const CurrencyConverter = () => {
       {history.length > 0 && (
         <View style={styles.totalContainer}>
           <Text style={styles.totalText}>
-            Total Converted: {totalConvertedAmount} {toCurrency} from {fromCurrency}
+            Total: {totalConvertedAmount} {toCurrency} from {fromCurrency}
           </Text>
         </View>
       )}
@@ -189,7 +206,7 @@ const CurrencyConverter = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
     padding: 20,
     backgroundColor: "#f5f5f5",
