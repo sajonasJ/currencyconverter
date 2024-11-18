@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Toast from "react-native-toast-message";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   StyleSheet,
   Text,
@@ -27,8 +28,36 @@ const CurrencyConverter = () => {
     { name: "Philippines", code: "PHP" },
   ];
 
+  // Load history from AsyncStorage when component mounts
+  useEffect(() => {
+    const loadHistoryFromStorage = async () => {
+      const loadedHistory = await loadHistory();
+      setHistory(loadedHistory);
+      if (loadedHistory.length > 0) {
+        setIsCurrencyLocked(true);
+      }
+    };
+    loadHistoryFromStorage();
+  }, []);
+
+  // Save history to AsyncStorage
+  useEffect(() => {
+    if (history.length > 0) {
+      saveHistory(history);
+    }
+  }, [history]);
+
   const convertCurrency = async () => {
-    if (!amount || isNaN(amount)) return alert("Please enter a valid amount");
+    if (!amount || isNaN(amount)) {
+      Toast.show({
+        type: "error",
+        position: "bottom",
+        text1: "Invalid Amount",
+        text2: "Please enter a valid amount.",
+        onPress: () => Toast.hide(),
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -55,7 +84,7 @@ const CurrencyConverter = () => {
       setConvertedAmount(result);
 
       // Add the conversion to the history
-      setHistory([
+      const newHistory = [
         ...history,
         {
           amount,
@@ -64,47 +93,75 @@ const CurrencyConverter = () => {
           result,
           date: new Date().toLocaleString(),
         },
-      ]);
-
+      ];
+      setHistory(newHistory); // Update the history
+      setAmount("");
       // Lock currency selection after conversion
       setIsCurrencyLocked(true);
-
     } catch (error) {
       console.error("Error converting currency:", error);
       alert("There was an error converting the currency.");
 
-        Toast.show({
-            type:"error",
-            position:"top",
-            text1:"Conversion Failed",
-            text2:"There was an error converting the currency."
-        })
-
+      Toast.show({
+        type: "error",
+        position: "top",
+        text1: "Conversion Failed",
+        text2: "There was an error converting the currency.",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
     setHistory([]);
     setConvertedAmount(null);
     setAmount("");
     setIsCurrencyLocked(false);
-    setFromCurrency("AUD");
-    setToCurrency("JPY");
+  
+    try {
+      await AsyncStorage.removeItem('@conversion_history');
+      Toast.show({
+        type: "success",
+        position: "top",
+        text1: "History Cleared",
+        text2: "All conversion history has been removed.",
+      });
+    } catch (e) {
+      console.error("Failed to clear history from storage", e);
+      Toast.show({
+        type: "error",
+        position: "top",
+        text1: "Clear Failed",
+        text2: "There was an error clearing the history.",
+      });
+    }
+  };
+  const saveHistory = async (history) => {
+    try {
+      const jsonValue = JSON.stringify(history);
+      await AsyncStorage.setItem('@conversion_history', jsonValue);
+    } catch (e) {
+      console.error("Failed to save history to storage", e);
+    }
+  };
 
-    Toast.show({
-        type:"success",
-        position:"top",
-        text1:"History Cleared",
-        text2:"All conversion history has been removed.",
-    })
+  const loadHistory = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@conversion_history');
+      return jsonValue != null ? JSON.parse(jsonValue) : [];
+    } catch (e) {
+      console.error("Failed to load history from storage", e);
+      return [];
+    }
   };
 
   // Calculate total of all conversions and include the base currency
-  const totalConvertedAmount = history.reduce((total, entry) => {
-    return total + parseFloat(entry.result);
-  }, 0).toFixed(2);
+  const totalConvertedAmount = history
+    .reduce((total, entry) => {
+      return total + parseFloat(entry.result);
+    }, 0)
+    .toFixed(2);
 
   return (
     <View style={styles.container}>
@@ -130,8 +187,11 @@ const CurrencyConverter = () => {
         <Picker
           selectedValue={fromCurrency}
           style={styles.picker}
-          onValueChange={(itemValue) => !isCurrencyLocked && setFromCurrency(itemValue)}
-          enabled={!isCurrencyLocked} // Disable if currency is locked
+          itemStyle={styles.pickerItem}
+          onValueChange={(itemValue) =>
+            !isCurrencyLocked && setFromCurrency(itemValue)
+          }
+          enabled={!isCurrencyLocked}
         >
           {allowedCurrencies.map((item) => (
             <Picker.Item
@@ -145,15 +205,17 @@ const CurrencyConverter = () => {
         <Picker
           selectedValue={toCurrency}
           style={styles.picker}
-          onValueChange={(itemValue) => !isCurrencyLocked && setToCurrency(itemValue)}
-          enabled={!isCurrencyLocked} // Disable if currency is locked
+          itemStyle={styles.pickerItem}
+          onValueChange={(itemValue) =>
+            !isCurrencyLocked && setToCurrency(itemValue)
+          }
+          enabled={!isCurrencyLocked}
         >
           {allowedCurrencies.map((item) => (
             <Picker.Item
               label={`${item.code} - ${item.name}`}
               value={item.code}
               key={item.code}
-              style={{ textAlign: 'center' }}
             />
           ))}
         </Picker>
@@ -203,6 +265,9 @@ const CurrencyConverter = () => {
   );
 };
 
+// Styles...
+
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -210,6 +275,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     backgroundColor: "#f5f5f5",
+  },
+  picker: {
+    height: 50,
+    width: "100%",
+    marginBottom: 20,
+  },
+  pickerItem: {
+    padding: 5,
+    textAlign: "center",
   },
   title: {
     fontSize: 24,
